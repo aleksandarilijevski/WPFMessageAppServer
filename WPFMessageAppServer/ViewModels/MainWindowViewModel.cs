@@ -1,11 +1,10 @@
 ﻿using Prism.Commands;
 using Prism.Mvvm;
-using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows;
 
 namespace WPFMessageAppServer.ViewModels
 {
@@ -14,9 +13,9 @@ namespace WPFMessageAppServer.ViewModels
         private string _messageToSend;
         private string _chat;
         private Socket _socket;
-        private Socket _client;
         private DelegateCommand _sendMessageCommand;
         private DelegateCommand _openServerCommand;
+        private List<Socket> _clients = new List<Socket>();
 
         public string MessageToSend
         {
@@ -73,28 +72,56 @@ namespace WPFMessageAppServer.ViewModels
             _socket.Bind(ipEndPoint);
             _socket.Listen(100);
 
-            _client = await _socket.AcceptAsync();
+            _ = Task.Run(async () => { await ListenForNewClients(); });
+        }
 
-            await ReceiveMessages(_client);
+        private async Task ListenForNewClients()
+        {
+            while (true)
+            {
+                Socket newClient = await _socket.AcceptAsync();
+                _clients.Add(newClient);
+                _ = Task.Run(async () => { await ReceiveMessages(newClient); });
+            }
         }
 
         private async void SendMessages()
         {
-            byte[] messageBytes = Encoding.UTF8.GetBytes(_messageToSend);
-            int _ = await _client.SendAsync(messageBytes, SocketFlags.None);
+            foreach (Socket client in _clients)
+            {
+                if (client.Connected)
+                {
+                    byte[] messageBytes = Encoding.UTF8.GetBytes(_messageToSend);
+                    int _ = await client.SendAsync(messageBytes, SocketFlags.None);
+                }
+            }
+
             Chat += "You said : " + _messageToSend + "\n";
-            MessageToSend = string.Empty;   
+            MessageToSend = string.Empty;
         }
 
-        private async Task ReceiveMessages(Socket connectedClient)
+        private async void SpreadMessage(string message, Socket client)
+        {
+            foreach (Socket socket in _clients)
+            {
+                if (socket.Handle != client.Handle)
+                {
+                    byte[] messageBytes = Encoding.UTF8.GetBytes(message);
+                    int _ = await socket.SendAsync(messageBytes, SocketFlags.None);
+                }
+            }
+        }
+
+        private async Task ReceiveMessages(Socket socket)
         {
             while (true)
             {
                 byte[] buffer = new byte[1024];
-                int received = await connectedClient.ReceiveAsync(buffer, SocketFlags.None);
+                int received = await socket.ReceiveAsync(buffer, SocketFlags.None);
                 string response = Encoding.UTF8.GetString(buffer, 0, received);
                 Chat += "Client said : " + response + "\n";
                 RaisePropertyChanged(nameof(Chat));
+                SpreadMessage(response, socket);
             }
         }
     }
