@@ -63,6 +63,9 @@ namespace WPFMessageAppServer.ViewModels
             }
         }
 
+        /// <summary>
+        /// Starting server
+        /// </summary>
         private async void OpenServer()
         {
             IPAddress ipAddress = IPAddress.Parse("192.168.1.2");
@@ -75,6 +78,9 @@ namespace WPFMessageAppServer.ViewModels
             _ = Task.Run(async () => { await ListenForNewClients(); });
         }
 
+        /// <summary>
+        /// Waiting for new incoming connection
+        /// </summary>
         private async Task ListenForNewClients()
         {
             while (true)
@@ -85,6 +91,9 @@ namespace WPFMessageAppServer.ViewModels
             }
         }
 
+        /// <summary>
+        /// Send message to all clients
+        /// </summary>
         private async void SendMessages()
         {
             foreach (Socket client in _clients)
@@ -100,6 +109,9 @@ namespace WPFMessageAppServer.ViewModels
             MessageToSend = string.Empty;
         }
 
+        /// <summary>
+        /// Spreads received message from client to all other clients except the one which sent it.
+        /// </summary>
         private async void SpreadMessage(string message, Socket client)
         {
             foreach (Socket socket in _clients)
@@ -112,6 +124,9 @@ namespace WPFMessageAppServer.ViewModels
             }
         }
 
+        /// <summary>
+        /// Receive messages from client
+        /// </summary>
         private async Task ReceiveMessages(Socket socket)
         {
             while (true)
